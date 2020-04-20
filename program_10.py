@@ -60,7 +60,7 @@ def CalcTqmean(Qvalues):
        the Tqmean value for the given data array."""
     Qvalues = Qvalues.dropna()
 
-    Tqmean= ((Qvalues> Qvalues.mean()).sum()) / len(Qvalues)
+    Tqmean= ((Qvalues > Qvalues.mean()).sum()) / len( Qvalues )
 
     return ( Tqmean )
 
@@ -85,7 +85,7 @@ def Calc7Q(Qvalues):
        picking the lowest average flow in any 7-day period during
        that year.  The routine returns the 7Q (7-day low flow) value
        for the given data array."""
-    
+    Qvalues=Qvalues.dropna()
     #rolling function with window defined for the problem 
     val7Q = (Qvalues.rolling(window=7).mean()).min() 
     return ( val7Q )
@@ -107,27 +107,27 @@ def GetAnnualStatistics(DataDF):
     annual values for each water year.  Water year, as defined by the USGS,
     starts on October 1."""
     
-    colname = [ 'site_no' , 'Mean Flow' , 'Peak Flow' , 'Median Flow' , 'Coeff Var' , 'Skew' , 'Tqmean' , 'R-B Index' , '7Q' , '3xMedian']
+    colname = [ 'site_no' , 'Mean Flow' , 'Peak Flow' , 'Median Flow' , 'Coeff Var' , 'Skew' , 'TQmean' , 'R-B Index' , '7Q' , '3xMedian']
     #convert original data to water year mean
-    newDataDF = DataDF.resample('AS-OCT').mean()
+    newDataDF = DataDF.resample('AS-OCT')
     
     #masking for the water year to compute
-    waterY = DataDF.resample('AS-OCT')
+    waterYavg = newDataDF.mean()
     
     #create dataframe 
-    WYDataDF = pd.DataFrame(0,index=newDataDF.index, columns=colname)
+    WYDataDF = pd.DataFrame(0,index=waterYavg.index, columns=colname)
     
     #compute necessary variables
-    WYDataDF['site_no'] = waterY['site_no'].min()
-    WYDataDF['Mean Flow'] = waterY['Discharge'].mean()
-    WYDataDF['Peak Flow'] = waterY['Discharge'].max()
-    WYDataDF['Median'] = waterY['Discharge'].median()
-    WYDataDF['Coeff Var'] = (waterY['Discharge'].std() / waterY['Discharge'].mean())*100
-    WYDataDF['Skew'] = waterY['Discharge'].apply(lambda x: stats.skew(x))
-    WYDataDF['TQmean'] = waterY['Discharge'].apply(lambda x: CalcTqmean(x))
-    WYDataDF['R-B Index'] = waterY['Discharge'].apply(lambda x: CalcRBindex(x))
-    WYDataDF['7Q'] = waterY['Discharge'].apply(lambda x: Calc7Q(x))
-    WYDataDF['3xMedian'] = waterY['Discharge'].apply(lambda x: CalcExceed3TimesMedian(x))
+    WYDataDF['site_no'] = newDataDF['site_no'].min()
+    WYDataDF['Mean Flow'] = newDataDF['Discharge'].mean()
+    WYDataDF['Peak Flow'] = newDataDF['Discharge'].max()
+    WYDataDF['Median Flow'] = newDataDF['Discharge'].median()
+    WYDataDF['Coeff Var'] = (newDataDF['Discharge'].std() / newDataDF['Discharge'].mean())*100
+    WYDataDF['Skew'] = newDataDF['Discharge'].apply(lambda x: stats.skew(x))
+    WYDataDF['TQmean'] = newDataDF['Discharge'].apply(lambda x: CalcTqmean(x))
+    WYDataDF['R-B Index'] = newDataDF['Discharge'].apply(lambda x: CalcRBindex(x))
+    WYDataDF['7Q'] = newDataDF['Discharge'].apply(lambda x: Calc7Q(x))
+    WYDataDF['3xMedian'] = newDataDF['Discharge'].apply(lambda x: CalcExceed3TimesMedian(x))
 
 
     return ( WYDataDF )
