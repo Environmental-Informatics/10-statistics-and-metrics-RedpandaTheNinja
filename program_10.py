@@ -60,7 +60,7 @@ def CalcTqmean(Qvalues):
        the Tqmean value for the given data array."""
     Qvalues = Qvalues.dropna()
 
-    Tqmean= ((Qvalues > Qvalues.mean()).sum()) / len( Qvalues )
+    Tqmean= ((Qvalues > Qvalues.mean()).sum()) / (len( Qvalues ))
 
     return ( Tqmean )
 
@@ -74,7 +74,10 @@ def CalcRBindex(Qvalues):
        routine returns the RBindex value for the given data array."""
     
     Qvalues = Qvalues.dropna()
-    RBindex = ((abs(Qvalues.diff())).sum())/(Qvalues.sum())
+    differ = Qvalues.diff()
+    absval = abs(differ).sum()
+    total = Qvalues.sum()
+    RBindex = absval / total
     return ( RBindex )
 
 def Calc7Q(Qvalues):
@@ -97,7 +100,7 @@ def CalcExceed3TimesMedian(Qvalues):
        provided) and then counting the number of days with flow greater than 
        3 times that value.   The routine returns the count of events greater 
        than 3 times the median annual flow value for the given data array."""
-    
+    Qvalues=Qvalues.dropna()
     median3x = ( Qvalues > ( Qvalues.median()*3) ).sum()   
     return ( median3x )
 
@@ -107,7 +110,8 @@ def GetAnnualStatistics(DataDF):
     annual values for each water year.  Water year, as defined by the USGS,
     starts on October 1."""
     
-    colname = [ 'site_no' , 'Mean Flow' , 'Peak Flow' , 'Median Flow' , 'Coeff Var' , 'Skew' , 'TQmean' , 'R-B Index' , '7Q' , '3xMedian']
+    colname = [ 'site_no' , 'Mean Flow' , 'Peak Flow' , 'Median Flow' , 'Coeff Var' , 'Skew' 
+    , 'Tqmean' , 'R-B Index' , '7Q' , '3xMedian']
     #convert original data to water year mean
     newDataDF = DataDF.resample('AS-OCT')
     
@@ -115,7 +119,7 @@ def GetAnnualStatistics(DataDF):
     waterYavg = newDataDF.mean()
     
     #create dataframe 
-    WYDataDF = pd.DataFrame(0,index=waterYavg.index, columns=colname)
+    WYDataDF = pd.DataFrame(index=waterYavg.index, columns=colname)
     
     #compute necessary variables
     WYDataDF['site_no'] = newDataDF['site_no'].min()
@@ -124,7 +128,7 @@ def GetAnnualStatistics(DataDF):
     WYDataDF['Median Flow'] = newDataDF['Discharge'].median()
     WYDataDF['Coeff Var'] = (newDataDF['Discharge'].std() / newDataDF['Discharge'].mean())*100
     WYDataDF['Skew'] = newDataDF['Discharge'].apply(lambda x: stats.skew(x))
-    WYDataDF['TQmean'] = newDataDF['Discharge'].apply(lambda x: CalcTqmean(x))
+    WYDataDF['Tqmean'] = newDataDF['Discharge'].apply(lambda x: CalcTqmean(x))
     WYDataDF['R-B Index'] = newDataDF['Discharge'].apply(lambda x: CalcRBindex(x))
     WYDataDF['7Q'] = newDataDF['Discharge'].apply(lambda x: Calc7Q(x))
     WYDataDF['3xMedian'] = newDataDF['Discharge'].apply(lambda x: CalcExceed3TimesMedian(x))
@@ -137,17 +141,17 @@ def GetMonthlyStatistics(DataDF):
     for the given streamflow time series.  Values are returned as a dataframe
     of monthly values for each year."""
     
-    colname = [ 'site_no' , 'Mean Flow' , 'Coeff Var' , 'TQmean' , 'R-B Index' ]
+    colname = [ 'site_no' , 'Mean Flow' , 'Coeff Var' , 'Tqmean' , 'R-B Index' ]
     
     Mon_Data=DataDF.resample('MS').mean()
     month=DataDF.resample('MS')
 
-    MoDataDF=pd.DataFrame(0,index=Mon_Data.index,columns=colname)
+    MoDataDF=pd.DataFrame(index=Mon_Data.index,columns=colname)
     
     MoDataDF['site_no'] = month['site_no'].min()
     MoDataDF['Mean Flow'] = month['Discharge'].mean()
     MoDataDF['Coeff Var'] = (month['Discharge'].std()/month['Discharge'].mean())*100
-    MoDataDF['TQmean'] = month['Discharge'].apply(lambda x: CalcTqmean(x))
+    MoDataDF['Tqmean'] = month['Discharge'].apply(lambda x: CalcTqmean(x))
     MoDataDF['R-B Index'] = month['Discharge'].apply(lambda x: CalcRBindex(x))
 
     return ( MoDataDF )
@@ -156,7 +160,7 @@ def GetAnnualAverages(WYDataDF):
     """This function calculates annual average values for all statistics and
     metrics.  The routine returns an array of mean values for each metric
     in the original dataframe."""
-    AnnualAverages = WYDataDF.mean( axis = 0 )
+    AnnualAverages = WYDataDF.mean(  )
     return( AnnualAverages )
 
 def GetMonthlyAverages(MoDataDF):
@@ -175,7 +179,7 @@ def GetMonthlyAverages(MoDataDF):
         MonthlyAverages.iloc[i,0]=MoDataDF['site_no'][::12].mean()
         MonthlyAverages.iloc[i,1]=MoDataDF['Mean Flow'][month[i]::12].mean()
         MonthlyAverages.iloc[i,2]=MoDataDF['Coeff Var'][month[i]::12].mean()
-        MonthlyAverages.iloc[i,3]=MoDataDF['TQmean'][month[i]::12].mean()
+        MonthlyAverages.iloc[i,3]=MoDataDF['Tqmean'][month[i]::12].mean()
         MonthlyAverages.iloc[i,4]=MoDataDF['R-B Index'][month[i]::12].mean()
 
     return( MonthlyAverages )
@@ -232,26 +236,34 @@ if __name__ == '__main__':
     #Annual metrics   
     #extract wildcat data
     Wild = WYDataDF['Wildcat']
+    Wild['Station'] = 'Wildcat'
     #extract Tippe data
     Tip = WYDataDF['Tippe']
+    Tip['Station'] = 'Tippe'
     #combine both data into one
     Wild = Wild.append(Tip)
     Wild.to_csv('Annual_Metrics.csv',sep=',', index=True)
         
     #monthly metrics
     Wild_mon = MoDataDF['Wildcat']
+    Wild_mon['Station'] = 'Wildcat'
     Tip_mon = MoDataDF['Tippe']
+    Tip_mon['Station'] = 'Tippe'
     Wild_mon = Wild_mon.append(Tip_mon)
     Wild_mon.to_csv('Monthly_Metrics.csv',sep=',', index=True)
     
     #avg anual metrics
     Wild_avg = AnnualAverages['Wildcat']
+    Wild_avg['Station'] = 'Wildcat'
     Tip_avg = AnnualAverages['Tippe']
+    Tip_avg['Station'] = 'Tippe'
     Wild_avg = Wild_avg.append(Tip_avg)
     Wild_avg.to_csv('Average_Annual_Metrics.txt',sep='\t', index=True)
         
     #avg mon metrics 
     Wild_avg_mon = MonthlyAverages['Wildcat']
+    Wild_avg_mon['Station'] = 'Wildcat'
     Tip_avg_mon = MonthlyAverages['Tippe']
+    Tip_avg_mon['Station'] = 'Tippe'
     Wild_avg_mon = Wild_avg_mon.append(Tip_avg_mon)
     Wild_avg_mon.to_csv('Average_Monthly_Metrics.txt',sep='\t', index=True)
